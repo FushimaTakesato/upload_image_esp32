@@ -1,6 +1,6 @@
 #include "esp_camera.h"
-#include "soc/soc.h"          
-#include "soc/rtc_cntl_reg.h"  
+//#include "soc/soc.h"          
+//#include "soc/rtc_cntl_reg.h"  
 #include "driver/rtc_io.h"
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -20,13 +20,16 @@
 //#define CAMERA_MODEL_TTGO_T_JOURNAL // No PSRAM
 #include "src/camera_pins.h"
 
-ESP32_FTPClient ftp (FTP_SERVER, FTP_USER, FTP_PASS, 50000, 2);
+//Set Baud Rate
+#define BAUD_RATE 115200
+
+ESP32_FTPClient ftp (FTP_SERVER, FTP_USER, FTP_PASS, 10000, 2);
 
 camera_config_t config;
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
  
-  Serial.begin(115200);
+  Serial.begin(BAUD_RATE);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
  
   Serial.println("Connecting Wifi...");
@@ -37,19 +40,12 @@ void setup() {
   Serial.println("IP address: ");   
   Serial.println(WiFi.localIP());
   initCamera();
-  //timeClient.begin();
-  //timeClient.update();
-  ftp.OpenConnection();
-  takePhoto();
-  Serial.println("deepsleep start");  
-  float set_sleep_sec;
-  set_sleep_sec = 3;   // sec
-  esp_sleep_enable_timer_wakeup(set_sleep_sec * 1000000LL * 1.006);
-  esp_deep_sleep_start();
-  delay(100);
+  Serial.println("CAMERA:initialized");  
+  setFTP();
+  
 }
 void loop() {
-  delay(100);
+  takePhoto();
 }
 void initCamera() {
   config.ledc_channel = LEDC_CHANNEL_0;

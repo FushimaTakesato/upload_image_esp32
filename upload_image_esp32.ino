@@ -23,7 +23,7 @@
 //Set Baud Rate
 #define BAUD_RATE 115200
 
-ESP32_FTPClient ftp (FTP_SERVER, FTP_USER, FTP_PASS, 10000, 2);
+ESP32_FTPClient ftp(FTP_SERVER, FTP_USER, FTP_PASS, 60000, 2);//短いとアップロードが完了しない。1分。
 
 camera_config_t config;
 void setup() {
@@ -41,8 +41,7 @@ void setup() {
   Serial.println(WiFi.localIP());
   initCamera();
   Serial.println("CAMERA:initialized");  
-  setFTP();
-  
+
 }
 void loop() {
   takePhoto();
@@ -85,6 +84,13 @@ void initCamera() {
     return;
   }  
 }
+
+void setFTP(){
+  ftp.OpenConnection();
+  ftp.ChangeWorkDir(FTP_PATH);
+  ftp.InitFile("Type I");
+  Serial.println("FTP:connected");  
+}
 void takePhoto() {
    
   camera_fb_t * fb = NULL;
@@ -93,22 +99,21 @@ void takePhoto() {
     Serial.println("Camera capture failed");
     return;
   }
-  /*
-   * Upload to ftp server
-   */
-  ftp.ChangeWorkDir(FTP_PATH);
-  ftp.InitFile("Type I");
   String archive =  "tekephoto.jpg";
-  Serial.println("file"+archive);
+  Serial.println("CAMERA:"+archive);
   int str_len = archive.length() + 1; 
- 
   char char_array[str_len];
   archive.toCharArray(char_array, str_len);
   
+  /*
+   * Upload to ftp server
+   */
+  setFTP();
   ftp.NewFile(char_array);
   ftp.WriteData( fb->buf, fb->len );
-  ftp.CloseFile();
-  
+  ftp.CloseFile();//TODO 毎回Closeさせたくない。
+  Serial.println("uploaded");
+  delay(5000);
   /*
    * Free buffer
    */

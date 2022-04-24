@@ -1,6 +1,5 @@
 #include "esp_camera.h"
-//#include "soc/soc.h"          
-//#include "soc/rtc_cntl_reg.h"  
+
 #include "driver/rtc_io.h"
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -23,9 +22,12 @@
 //Set Baud Rate
 #define BAUD_RATE 115200
 
-ESP32_FTPClient ftp(FTP_SERVER, FTP_USER, FTP_PASS, 60000, 2);//短いとアップロードが完了しない。1分。
+ESP32_FTPClient ftp(FTP_SERVER, FTP_USER, FTP_PASS, 5000, 2);//短いとアップロードが完了しない。5秒。
 
 camera_config_t config;
+
+int cnt_img = 0;
+
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
  
@@ -41,7 +43,7 @@ void setup() {
   Serial.println(WiFi.localIP());
   initCamera();
   Serial.println("CAMERA:initialized");  
-
+  setFTP();
 }
 void loop() {
   takePhoto();
@@ -87,32 +89,53 @@ void initCamera() {
 
 void setFTP(){
   ftp.OpenConnection();
-  ftp.ChangeWorkDir(FTP_PATH);
-  ftp.InitFile("Type I");
   Serial.println("FTP:connected");  
+  ftp.ChangeWorkDir(FTP_PATH);
+  Serial.println("FTP:change dir");  
+  ftp.InitFile("Type I");
 }
 void takePhoto() {
-   
-  camera_fb_t * fb = NULL;
-    fb = esp_camera_fb_get();  
-  if(!fb) {
-    Serial.println("Camera capture failed");
-    return;
-  }
-  String archive =  "tekephoto.jpg";
+  //ファイル名
+  String archive =  "tekephoto" + String(cnt_img) + ".jpg";
   Serial.println("CAMERA:"+archive);
   int str_len = archive.length() + 1; 
   char char_array[str_len];
   archive.toCharArray(char_array, str_len);
+
+  //画像をバッファに保持
+  camera_fb_t * fb = NULL;
+  fb = esp_camera_fb_get();  
+  if(!fb) {
+    Serial.println("Camera capture failed");
+    return;
+  }
   
   /*
    * Upload to ftp server
    */
-  setFTP();
+  //FTP導通チェック
+  if(!ftp.isConnected()){
+    setFTP()
+  }
+  
+  // Get directory content
+  String list[128];
+  ftp.ContentList("", list);
+  Serial.println("\nDirectory info: ");
+  for(int i = 0; i < sizeof(list); i++){
+    if(list[i].length() > 0)
+      Serial.println(list[i]);
+    else
+      break;
+  }
+  
+  //もしファイルが存在したら
+  ftp.DeleteFile(char_array);
   ftp.NewFile(char_array);
   ftp.WriteData( fb->buf, fb->len );
   ftp.CloseFile();//TODO 毎回Closeさせたくない。
   Serial.println("uploaded");
+  cnt_img += 1;
   delay(5000);
   /*
    * Free buffer
